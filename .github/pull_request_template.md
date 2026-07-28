@@ -2,6 +2,13 @@
 
 <!-- One paragraph. What this changes and why. Link the spec or issue. -->
 
+## PR type
+
+- [ ] **`feature/* → dev`** — a change entering integration. Fill in everything below.
+- [ ] **`dev → main`** — a release. Treat the description as a release note: what ships,
+      what to watch after deploy. The per-change gates were already met upstream; what
+      matters here is that the *integrated* result was verified on the preview URL.
+
 ## Owner
 
 <!-- The agent from .claude/agents/README.md whose ownership map covers these paths. -->
@@ -23,6 +30,7 @@ actually completed. Do not tick ahead.
 - [ ] **`test-engineer` passed** — correctness by execution
 - [ ] `pnpm typecheck && pnpm lint && pnpm test` green locally
 - [ ] CI green on this PR
+- [ ] *(`dev → main` only)* verified on the preview URL after the `dev` merge
 
 ### Mandatory review paths
 

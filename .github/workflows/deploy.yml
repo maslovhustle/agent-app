@@ -1,27 +1,32 @@
 name: Deploy
 
-# Continuous deployment to Vercel — the ONLY path to production.
+# Deployment to Vercel — the ONLY path to an environment.
+#
+#   dev  -> preview  (staging URL, verify here before promoting)
+#   main -> production
 #
 # Vercel's own Git integration deploys on push and does NOT wait for GitHub Actions,
 # so leaving it enabled would let a red test suite reach production. `vercel.json`
-# therefore sets `git.deploymentEnabled.main = false`, disabling Vercel's automatic
-# deploys, and this workflow becomes the single gate: `needs: verify` means a failing
-# typecheck, lint or test blocks the deploy.
+# therefore disables Vercel's automatic deploys for both branches, and this workflow
+# becomes the single gate: `needs: verify` means a failing typecheck, lint or test
+# blocks the deploy.
 #
 # Required repository secrets:
 #   VERCEL_TOKEN      — Vercel account settings → Tokens
 #   VERCEL_ORG_ID     — from .vercel/project.json after `vercel link`
 #   VERCEL_PROJECT_ID — from .vercel/project.json after `vercel link`
 #
-# Until those are set the deploy job skips, and nothing reaches production at all.
+# Until those are set the deploy job skips, and nothing reaches any environment.
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   workflow_dispatch:
 
+# Keyed by branch so a dev preview and a production deploy never queue behind each
+# other. cancel-in-progress stays false: half-finished deploys are worse than slow ones.
 concurrency:
-  group: deploy-production
+  group: deploy-${{ github.ref }}
   cancel-in-progress: false
 
 env:
@@ -69,7 +74,7 @@ jobs:
       - run: pnpm test
 
   deploy:
-    name: Deploy to production
+    name: Deploy
     needs: [preflight, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -79,7 +84,8 @@ jobs:
     # opaque auth error instead of skipping.
     if: needs.preflight.outputs.configured == 'true'
     environment:
-      name: production
+      # `main` is the protected production environment; `dev` gets a staging URL.
+      name: ${{ github.ref == 'refs/heads/main' && 'production' || 'preview' }}
       url: ${{ steps.deploy.outputs.url }}
 
     steps:
@@ -97,16 +103,29 @@ jobs:
       - name: Install Vercel CLI
         run: pnpm add --global vercel@latest
 
+      # `--prod` is added only on main. Everything downstream reads this one value,
+      # so the branch-to-environment mapping lives in exactly one place.
+      - name: Resolve target environment
+        id: target
+        run: |
+          if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "flag=--prod" >> "$GITHUB_OUTPUT"
+            echo "env=production" >> "$GITHUB_OUTPUT"
+          else
+            echo "flag=" >> "$GITHUB_OUTPUT"
+            echo "env=preview" >> "$GITHUB_OUTPUT"
+          fi
+
       # Vercel builds with the environment variables configured on the project, so
       # the real (non-placeholder) config lives in the Vercel dashboard, never here.
       - name: Pull Vercel environment
-        run: vercel pull --yes --environment=production --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=${{ steps.target.outputs.env }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
 
       - name: Build
-        run: vercel build --prod --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel build ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }}
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
@@ -114,9 +133,9 @@ jobs:
       - name: Deploy
         id: deploy
         run: |
-          url=$(vercel deploy --prebuilt --prod --token=${{ secrets.VERCEL_TOKEN }})
+          url=$(vercel deploy --prebuilt ${{ steps.target.outputs.flag }} --token=${{ secrets.VERCEL_TOKEN }})
           echo "url=$url" >> "$GITHUB_OUTPUT"
-          echo "Deployed to $url"
+          echo "Deployed ${{ steps.target.outputs.env }} to $url"
         env:
           VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}

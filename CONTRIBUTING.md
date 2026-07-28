@@ -1,24 +1,45 @@
 # Contributing
 
-`main` is protected. Nothing lands on it except through a reviewed, tested,
-CI-green pull request.
+Both `dev` and `main` are protected. Nothing lands on either except through a
+reviewed, tested, CI-green pull request.
+
+## Branch model
+
+```
+feature/*  →  dev  →  main
+   PR #1      PR #2
+              ↓         ↓
+           preview   production
+```
+
+| Branch | Role | Deploys to |
+|---|---|---|
+| `feature/*`, `fix/*`, `tune/*` | where work happens | nothing |
+| `dev` | integration — changes meet each other here first | preview URL |
+| `main` | production | production URL |
+
+Two gates, not one. The first PR asks *"is this change correct?"*; the second asks
+*"is the integrated result ready to ship?"*. A change that passes in isolation can
+still break something it was merged alongside, and `dev` is where that surfaces —
+on a preview URL rather than in production.
 
 ## The flow
 
 ```
-feature branch → agent review → tests → PR → CI green → approval → merge → deploy
+feature branch → code-reviewer → test-engineer → PR to dev → CI green → approval
+  → merge to dev → verify on preview → PR dev→main → CI green → approval
+  → merge to main → production deploy
 ```
 
-### 1. Branch
-
-Never commit to `main` directly. Branch names carry their type:
+### 1. Branch off `dev`, never `main`
 
 ```bash
+git switch dev && git pull
 git switch -c feat/corpus-filter-presets
-git switch -c fix/rerank-threshold-passthrough
-git switch -c tune/child-chunk-size
-git switch -c chore/bump-ai-sdk
 ```
+
+Branch names carry their type: `feat/`, `fix/`, `tune/`, `refactor/`, `docs/`,
+`test/`, `chore/`.
 
 ### 2. Build it
 
@@ -64,20 +85,31 @@ Plus, by change type:
 CI runs exactly these commands on a clean machine. Failing locally first is the faster
 loop.
 
-### 5. Open the PR
+### 5. Open the PR into `dev`
 
 ```bash
 git push -u origin feat/corpus-filter-presets
 ```
 
-Fill in the template honestly. Tick a stage only once it has actually completed — a
-pre-ticked checklist is worse than an empty one, because it converts a gate into
-decoration.
+Base branch is **`dev`**. Fill in the template honestly — tick a stage only once it has
+actually completed. A pre-ticked checklist is worse than an empty one, because it
+converts a gate into decoration.
 
-### 6. Merge
-
-Requires: CI green **and** an approving review. Squash-merge; the PR title becomes the
+Requires CI green **and** an approving review. Squash-merge; the PR title becomes the
 commit message, so write it as one.
+
+### 6. Verify on preview
+
+Merging to `dev` deploys a preview URL. Check the change there against the *integrated*
+state — this is the step that catches conflicts between two individually-correct
+changes.
+
+### 7. Promote `dev` → `main`
+
+Open a second PR, `dev` into `main`. Its description is a release note: what is being
+shipped and what to watch after deploy. Same gates — CI green, approving review.
+
+Merging to `main` deploys production. That is the only way anything reaches it.
 
 ## Commit messages
 
@@ -92,11 +124,12 @@ Types: `feat`, `fix`, `tune`, `refactor`, `docs`, `test`, `chore`.
 
 ## Deployment
 
-Production deploys from `main` only. Because `main` is protected, the only path to
-production runs through this document.
+`dev` deploys to preview, `main` deploys to production — both only through
+`.github/workflows/deploy.yml`, which is gated on its verify job.
 
-See [`.github/workflows/`](.github/workflows/) for the pipeline and the README's CI/CD
-section for how the two workflows relate.
+`vercel.json` disables Vercel's own Git deployments for both branches. Without that,
+Vercel would deploy on push without waiting for GitHub Actions, and a red test suite
+could reach production — which is exactly what happened once before this was fixed.
 
 ## The rules that get a PR rejected
 
