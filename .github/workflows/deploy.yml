@@ -29,6 +29,27 @@ env:
   NEXT_TELEMETRY_DISABLED: '1'
 
 jobs:
+  # GitHub Actions does not expose the `secrets` context to a job-level `if`, so the
+  # "are we linked to Vercel yet?" check has to happen inside a step and be published
+  # as a job output. Without this indirection the whole workflow fails to parse.
+  preflight:
+    name: Check deployment credentials
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      configured: ${{ steps.check.outputs.configured }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.VERCEL_TOKEN }}" ] \
+            && [ -n "${{ secrets.VERCEL_ORG_ID }}" ] \
+            && [ -n "${{ secrets.VERCEL_PROJECT_ID }}" ]; then
+            echo "configured=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "configured=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::Vercel secrets not set — the deploy job will be skipped. Add VERCEL_TOKEN, VERCEL_ORG_ID and VERCEL_PROJECT_ID, or use Vercel's Git integration instead."
+          fi
+
   verify:
     name: Verify before deploy
     runs-on: ubuntu-latest
@@ -49,14 +70,14 @@ jobs:
 
   deploy:
     name: Deploy to production
-    needs: verify
+    needs: [preflight, verify]
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    # The whole job is skipped when the secrets are absent — in a fork, or before the
-    # repo has been linked to Vercel. Guarding at job level rather than in a step
-    # matters: a step that `exit 0`s does not stop the steps after it, so the run
-    # would carry on and fail with an opaque auth error instead of skipping.
-    if: ${{ secrets.VERCEL_TOKEN != '' }}
+    # Skipped cleanly in forks and before the repo is linked to Vercel. Gating the
+    # whole job (rather than adding an early-exit step) matters: a step that `exit 0`s
+    # does not stop the steps after it, so the run would carry on and fail with an
+    # opaque auth error instead of skipping.
+    if: needs.preflight.outputs.configured == 'true'
     environment:
       name: production
       url: ${{ steps.deploy.outputs.url }}
