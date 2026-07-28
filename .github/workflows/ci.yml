@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  # Lets you re-run the gate by hand after fixing infrastructure rather than
+  # pushing an empty commit.
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run's result irrelevant.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # The app validates its config with Zod at first request and refuses to boot on a
+  # bad one. CI has no secrets and never serves a request, so validation is bypassed
+  # here — and ONLY here. See lib/env.ts.
+  SKIP_ENV_VALIDATION: 'true'
+  NEXT_TELEMETRY_DISABLED: '1'
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      # --frozen-lockfile fails the build if pnpm-lock.yaml has drifted from
+      # package.json, rather than silently resolving different versions than the ones
+      # that were tested locally.
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Ordered cheapest-to-most-expensive so a trivial mistake fails in seconds
+      # rather than after a four-minute build. Each step runs even if an earlier one
+      # failed, so one push surfaces every problem at once instead of one per round trip.
+      - name: Typecheck
+        if: '!cancelled()'
+        run: pnpm typecheck
+
+      - name: Lint
+        if: '!cancelled()'
+        run: pnpm lint
+
+      - name: Unit tests
+        if: '!cancelled()'
+        run: pnpm test
+
+      - name: Production build
+        if: '!cancelled()'
+        run: pnpm build

@@ -1,5 +1,7 @@
 # AI Knowledge & Compliance Research Agent
 
+[![CI](https://github.com/maslovhustle/agent-app/actions/workflows/ci.yml/badge.svg)](https://github.com/maslovhustle/agent-app/actions/workflows/ci.yml)
+
 A production-shaped Next.js 15 application that answers compliance questions against a
 private document corpus — and shows its entire reasoning process while it does.
 
@@ -353,7 +355,51 @@ This repo is configured to be worked on *by* AI agents as well as with them:
 - **`.cursorrules`** — condensed constraints for Cursor Agent mode.
 - **`.clauderc`** — machine-readable project config, sub-agent registry, and guardrails
   (which paths each sub-agent owns, which files are never edited, what "done" means).
-- **`prompts/dev-agents/*.md`** — deep system prompts for the three specialists.
+- **`prompts/dev-agents/*.md`** — deep system prompts for three single-purpose specialists
+  (SQL/pgvector, RAG evaluation, hyperparameter tuning).
+
+### Agent team
+
+`.claude/agents/` defines a project-scoped team with explicit ownership boundaries and a
+handoff protocol — see [`.claude/agents/README.md`](.claude/agents/README.md) for the
+routing diagram.
+
+| Agent | Owns |
+|---|---|
+| `delivery-lead` | routing, sequencing, the quality gate |
+| `product-owner` | specs and acceptance criteria |
+| `project-manager` | task state, blockers, cut scope |
+| `architect` | structure, dependencies, boundaries |
+| `rag-engineer` | `lib/ai/**`, `lib/chunking/**` |
+| `backend-engineer` | routes, Server Actions, Inngest, Supabase, CI |
+| `frontend-engineer` | `components/**`, pages, streaming UI |
+| `design-system` | tokens, `components/ui/**` |
+| `code-reviewer` | the merge gate |
+
+The protocol's central rule: **review is mandatory for changes to retrieval, agent state
+reducers, prompts, or the server/client boundary** — because failures there are silent.
+They surface as worse answers, not as exceptions, so no build or test catches them.
+
+---
+
+## CI/CD
+
+**`.github/workflows/ci.yml`** — runs on every push and PR to `main`: typecheck → lint →
+test → build, ordered cheapest-first so a typo fails in seconds rather than after a
+four-minute build. Every step runs even when an earlier one fails, so one push surfaces
+every problem at once.
+
+CI needs no secrets. `SKIP_ENV_VALIDATION=true` bypasses the Zod config gate — which is
+safe here because CI never serves a request, and is the *only* place that flag belongs.
+
+**`.github/workflows/deploy.yml`** — production deploy to Vercel, gated on the verify job,
+so a red test suite cannot reach production. It needs three repository secrets
+(`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) and skips itself cleanly when they
+are absent.
+
+If you instead connect the repo through Vercel's own Git integration, Vercel deploys on
+every push by itself — in that case delete `deploy.yml` or you will get two deployments per
+push.
 
 ---
 
