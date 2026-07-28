@@ -389,22 +389,41 @@ They surface as worse answers, not as exceptions, so no build or test catches th
 
 ## CI/CD
 
-**`.github/workflows/ci.yml`** — runs on every push and PR to `main`: typecheck → lint →
-test → build, ordered cheapest-first so a typo fails in seconds rather than after a
-four-minute build. Every step runs even when an earlier one fails, so one push surfaces
-every problem at once.
+Both `dev` and `main` are protected. Two gates, not one:
 
-CI needs no secrets. `SKIP_ENV_VALIDATION=true` bypasses the Zod config gate — which is
-safe here because CI never serves a request, and is the *only* place that flag belongs.
+```
+feature/* ──PR──▶ dev ──PR──▶ main
+                   │            │
+                preview     production
+```
 
-**`.github/workflows/deploy.yml`** — production deploy to Vercel, gated on the verify job,
-so a red test suite cannot reach production. It needs three repository secrets
-(`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) and skips itself cleanly when they
-are absent.
+The first PR asks *"is this change correct?"*; the second asks *"is the integrated
+result ready to ship?"*. A change that passes in isolation can still break something it
+was merged alongside — `dev` surfaces that on a preview URL instead of in production.
 
-If you instead connect the repo through Vercel's own Git integration, Vercel deploys on
-every push by itself — in that case delete `deploy.yml` or you will get two deployments per
-push.
+Full rules in [`CONTRIBUTING.md`](CONTRIBUTING.md).
+
+**`.github/workflows/ci.yml`** — runs on every push and PR to `dev` and `main`:
+typecheck → lint → test → build, ordered cheapest-first so a typo fails in seconds
+rather than after a four-minute build. Every step runs even when an earlier one fails,
+so one push surfaces every problem at once.
+
+CI needs no secrets. `SKIP_ENV_VALIDATION=true` bypasses the Zod config gate — safe here
+because CI never serves a request, and the *only* place that flag belongs.
+
+**`.github/workflows/deploy.yml`** — deploys to Vercel, gated on the verify job.
+`dev` → preview URL, `main` → production. Needs three repository secrets
+(`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`) and skips cleanly when absent.
+
+### Why `vercel.json` disables Vercel's Git deploys
+
+Vercel's Git integration reacts to the push itself and **does not wait for GitHub
+Actions**. Left enabled, it happily ships a commit whose test suite is red — which is
+exactly what happened here before this was fixed: production went live while CI was
+failing, because Vercel, not the workflow, was doing the deploying.
+
+`vercel.json` sets `git.deploymentEnabled` to `false` for both branches, so `deploy.yml`
+becomes the single path to either environment. One route, one set of checks.
 
 ---
 

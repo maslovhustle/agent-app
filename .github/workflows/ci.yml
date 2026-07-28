@@ -1,10 +1,13 @@
 name: CI
 
+# Two-tier branching: feature -> dev -> main.
+# CI gates PRs into both, so a change is verified when it enters integration and
+# again when integration is promoted to production.
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
   pull_request:
-    branches: [main]
+    branches: [main, dev]
   # Lets you re-run the gate by hand after fixing infrastructure rather than
   # pushing an empty commit.
   workflow_dispatch:
