@@ -1,19 +1,19 @@
 name: Deploy
 
-# Continuous deployment to Vercel.
+# Continuous deployment to Vercel — the ONLY path to production.
 #
-# NOTE: if you connect this repo through the Vercel dashboard's Git integration,
-# Vercel deploys on every push by itself and this workflow is redundant — delete it,
-# or you will get two deployments per push.
-#
-# Use this workflow instead of the Git integration when you want deployment gated on
-# CI passing, which is what the `needs: verify` below buys you: a red test suite
-# cannot reach production.
+# Vercel's own Git integration deploys on push and does NOT wait for GitHub Actions,
+# so leaving it enabled would let a red test suite reach production. `vercel.json`
+# therefore sets `git.deploymentEnabled.main = false`, disabling Vercel's automatic
+# deploys, and this workflow becomes the single gate: `needs: verify` means a failing
+# typecheck, lint or test blocks the deploy.
 #
 # Required repository secrets:
 #   VERCEL_TOKEN      — Vercel account settings → Tokens
 #   VERCEL_ORG_ID     — from .vercel/project.json after `vercel link`
 #   VERCEL_PROJECT_ID — from .vercel/project.json after `vercel link`
+#
+# Until those are set the deploy job skips, and nothing reaches production at all.
 
 on:
   push:
