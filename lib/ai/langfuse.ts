@@ -81,14 +81,20 @@ export function startTrace(params: StartTraceParams): TraceHandle {
   let promptTokens = 0;
   let outputTokens = 0;
   let totalCostUsd = 0;
-  let primaryModel = '';
+  // A turn calls multiple roles (planner/synthesizer/verifier), which can
+  // resolve to different model ids under the fast/reasoning tiering in
+  // lib/ai/models.ts. Tracking the full set — rather than just the first
+  // call's model — is what keeps the trace drawer's cost story honest.
+  const modelsUsed = new Set<string>();
 
   const recordUsage = (delta: UsageDelta): void => {
     promptTokens += delta.promptTokens;
     outputTokens += delta.outputTokens;
     totalCostUsd += estimateCostUsd(delta.model, delta.promptTokens, delta.outputTokens);
-    if (!primaryModel) primaryModel = delta.model;
+    if (delta.model) modelsUsed.add(delta.model);
   };
+
+  const modelsLabel = (): string => [...modelsUsed].join(' + ');
 
   // --- Disabled path: a fully-typed handle that does nothing --------------
   if (!langfuse) {
@@ -111,7 +117,7 @@ export function startTrace(params: StartTraceParams): TraceHandle {
         promptTokens,
         outputTokens,
         totalCostUsd,
-        model: primaryModel,
+        model: modelsLabel(),
         tracingEnabled: false,
       }),
       end: async () => undefined,
@@ -173,7 +179,7 @@ export function startTrace(params: StartTraceParams): TraceHandle {
       promptTokens,
       outputTokens,
       totalCostUsd,
-      model: primaryModel,
+      model: modelsLabel(),
       tracingEnabled: true,
     }),
 
