@@ -1,0 +1,102 @@
+@import 'tailwindcss';
+
+/* ---------------------------------------------------------------------------
+   Design tokens (Tailwind v4 `@theme`).
+
+   Dark-first: this is an operator console, usually kept open next to logs and
+   a Langfuse tab. Light mode is supported but secondary.
+--------------------------------------------------------------------------- */
+
+@theme {
+  --color-surface-0: oklch(0.16 0.012 265);
+  --color-surface-1: oklch(0.2 0.014 265);
+  --color-surface-2: oklch(0.25 0.016 265);
+  --color-surface-3: oklch(0.31 0.018 265);
+
+  --color-ink-0: oklch(0.97 0.004 265);
+  --color-ink-1: oklch(0.82 0.012 265);
+  --color-ink-2: oklch(0.65 0.016 265);
+  --color-ink-3: oklch(0.5 0.018 265);
+
+  --color-brand: oklch(0.72 0.16 255);
+  --color-brand-soft: oklch(0.42 0.1 255);
+
+  --color-success: oklch(0.75 0.16 155);
+  --color-warning: oklch(0.79 0.15 85);
+  --color-danger: oklch(0.68 0.19 25);
+
+  --font-sans:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono:
+    ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --radius-panel: 0.875rem;
+}
+
+@layer base {
+  * {
+    border-color: var(--color-surface-3);
+  }
+
+  html {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: var(--color-surface-0);
+    color: var(--color-ink-1);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  ::selection {
+    background-color: var(--color-brand-soft);
+    color: var(--color-ink-0);
+  }
+
+  /* Slim scrollbars — the inspector and chat are both dense scroll regions. */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background-color: var(--color-surface-3);
+    border-radius: 9999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background-color: var(--color-ink-3);
+  }
+}
+
+@layer utilities {
+  .panel {
+    background-color: var(--color-surface-1);
+    border: 1px solid var(--color-surface-3);
+    border-radius: var(--radius-panel);
+  }
+
+  .panel-muted {
+    background-color: var(--color-surface-2);
+    border: 1px solid var(--color-surface-3);
+    border-radius: 0.625rem;
+  }
+
+  /* Blinking caret shown while the synthesizer is still streaming. */
+  .streaming-caret::after {
+    content: '▍';
+    margin-left: 0.125rem;
+    animation: caret-blink 1s steps(2, start) infinite;
+    color: var(--color-brand);
+  }
+
+  @keyframes caret-blink {
+    to {
+      visibility: hidden;
+    }
+  }
+}

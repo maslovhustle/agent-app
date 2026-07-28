@@ -1,0 +1,69 @@
+# Cursor Agent rules — Compliance Research Agent
+
+You are working in a Next.js 15 + TypeScript RAG application. Read `CLAUDE.md` for the
+full architecture contract; this file is the condensed set of constraints you must not
+violate while editing.
+
+## Stack
+
+Next.js 15 App Router · React 19 · TypeScript strict · Tailwind v4 · Shadcn/Radix
+primitives · Vercel AI SDK v5 · LangGraph.js · Supabase pgvector · Cohere rerank ·
+Langfuse · Inngest · Zod · pnpm.
+
+## Hard constraints
+
+1. **No `any`.** Ever. Use `unknown` + a type guard, or a Zod schema. ESLint fails the build.
+2. **`process.env` is read in exactly one file**: `lib/env.ts`. Import `getEnv()` /
+   `getRagConfig()` / `getCapabilities()` instead.
+3. **Server Components by default.** `'use client'` only for state, effects, or browser
+   APIs — and pushed as deep into the tree as possible.
+4. **Mutations are Server Actions** (`app/actions/`), validated with Zod at the top of the
+   function. Route handlers are only for the chat stream and the Inngest webhook.
+5. **`import 'server-only'`** at the top of any module using the service-role Supabase
+   client, Cohere, Langfuse, or the agent graph.
+6. **Array indexing returns `T | undefined`** (`noUncheckedIndexedAccess`). Handle it.
+   Do not silence it with `!`.
+
+## Styling
+
+- Tailwind v4 utilities only. Colours come from the `@theme` custom properties in
+  `app/globals.css`: `var(--color-brand)`, `var(--color-surface-1)`, `var(--color-ink-2)`, …
+- No raw hex values, no inline `style` except for computed widths (progress bars).
+- Compose the primitives in `components/ui/`; do not duplicate a variant into a page.
+- Dark-first. Verify contrast on `--color-surface-0` backgrounds.
+
+## Server vs Client boundary
+
+```
+Server Component  →  fetches data, renders shell, passes plain props
+     ↓
+Client Component  →  useChat / useState / event handlers
+```
+
+Never import a `server-only` module into a `'use client'` file. Never pass a function
+prop from a Server Component to a Client Component.
+
+## Streaming and agent state
+
+- Chat uses `useChat` + `DefaultChatTransport` from the AI SDK.
+- Agent telemetry rides the same stream as typed data parts (`data-agent-event`,
+  `data-trace`) declared in `lib/ai/agent/messages.ts`.
+- The inspector is **derived state over `messages`**. No polling, no websockets, no
+  duplicated `useState` mirror of stream data.
+
+## The retrieval pipeline is ordered
+
+`embed → (dense ∥ sparse) → RRF → dedupe-by-parent → Cohere rerank → hydrate parents`
+
+Do not reorder or skip a stage. Every stage degrades gracefully instead of throwing, and
+sets a flag (`rerankApplied`, `isMock`) so the UI can tell the truth about what ran.
+
+## Comments
+
+Explain **why**, never **what**. This codebase documents its trade-offs deliberately —
+why rank fusion instead of score normalisation, why children are embedded but parents are
+read. Preserve that reasoning. Delete no comment you do not understand.
+
+## Definition of done
+
+`pnpm typecheck && pnpm lint && pnpm test` all green. Run them; do not assume.

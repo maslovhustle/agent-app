@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json.schemastore.org/clauderc.json",
+  "project": {
+    "name": "compliance-research-agent",
+    "description": "Enterprise RAG console: parent-child chunking, hybrid retrieval with RRF, Cohere cross-encoder reranking, a LangGraph research agent and Langfuse tracing.",
+    "packageManager": "pnpm",
+    "primaryContext": ["CLAUDE.md", ".cursorrules"]
+  },
+  "commands": {
+    "dev": "pnpm dev",
+    "jobs": "pnpm inngest:dev",
+    "build": "pnpm build",
+    "lint": "pnpm lint",
+    "typecheck": "pnpm typecheck",
+    "test": "pnpm test",
+    "evals": "pnpm evals",
+    "verify": "pnpm typecheck && pnpm lint && pnpm test"
+  },
+  "conventions": {
+    "language": "typescript",
+    "strict": true,
+    "forbidExplicitAny": true,
+    "styling": "tailwind-v4-theme-tokens",
+    "componentPrimitives": "components/ui",
+    "mutations": "server-actions",
+    "validation": "zod-at-every-boundary",
+    "envAccess": "lib/env.ts only",
+    "commentPolicy": "explain why, never what"
+  },
+  "subAgents": {
+    "db-agent": {
+      "prompt": "prompts/dev-agents/db-agent.md",
+      "use": "Supabase and pgvector schema changes, SQL migrations, retrieval function tuning, index strategy.",
+      "owns": ["supabase/migrations/**", "lib/supabase/**", "lib/ai/retrieval/search.ts"]
+    },
+    "evals-agent": {
+      "prompt": "prompts/dev-agents/evals-agent.md",
+      "use": "RAG accuracy test suites, ground-truth datasets, Langfuse-based evaluation and regression gates.",
+      "owns": ["evals/**", "tests/**", "scripts/run-evals.ts"]
+    },
+    "rag-tuner": {
+      "prompt": "prompts/dev-agents/rag-tuner.md",
+      "use": "Chunk sizes, overlap ratios, RRF k and weights, candidate counts, rerank thresholds.",
+      "owns": ["lib/chunking/**", "lib/ai/retrieval/rrf.ts", "lib/ai/retrieval/hybrid.ts", ".env.example"]
+    }
+  },
+  "guardrails": {
+    "neverEdit": ["pnpm-lock.yaml", ".next/**", "node_modules/**"],
+    "requireTestsFor": [
+      "lib/chunking/**",
+      "lib/ai/retrieval/rrf.ts",
+      "lib/ai/agent/state.ts"
+    ],
+    "doneCriteria": "pnpm typecheck && pnpm lint && pnpm test must all pass"
+  }
+}

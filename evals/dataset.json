@@ -1,0 +1,42 @@
+{
+  "$comment": "Ground-truth set for RAG evaluation. Replace these with cases drawn from YOUR corpus — the defaults assume GDPR-style source documents and will score zero against an unrelated knowledge base. Keep expectedPhrases short and verbatim: they are matched as case-insensitive substrings against retrieved parent contexts, so they survive chunk-size changes that would invalidate chunk-id ground truth.",
+  "cases": [
+    {
+      "id": "breach-notification-deadline",
+      "question": "What is the deadline for notifying a supervisory authority about a personal data breach?",
+      "expectedPhrases": ["72 hours", "supervisory authority"],
+      "expectedAnswerContains": ["72"],
+      "expectedSource": "gdpr"
+    },
+    {
+      "id": "processor-obligations",
+      "question": "What must a processor include in its contract with a controller?",
+      "expectedPhrases": ["processor", "contract", "instructions"],
+      "expectedAnswerContains": ["processor"]
+    },
+    {
+      "id": "security-measures",
+      "question": "Which technical and organisational security measures are explicitly named?",
+      "expectedPhrases": ["pseudonymisation", "encryption"],
+      "expectedAnswerContains": ["encryption"]
+    },
+    {
+      "id": "dpia-trigger",
+      "question": "When is a data protection impact assessment required?",
+      "expectedPhrases": ["impact assessment", "high risk"],
+      "expectedAnswerContains": ["high risk"]
+    },
+    {
+      "id": "data-subject-access",
+      "question": "What information must be provided in response to a data subject access request?",
+      "expectedPhrases": ["right of access", "personal data"],
+      "expectedAnswerContains": ["access"]
+    },
+    {
+      "id": "out-of-scope-control",
+      "question": "What is the maximum permitted noise level for industrial machinery in residential zones?",
+      "expectedPhrases": ["decibel"],
+      "$comment": "Negative control: this should NOT be answerable from a data-protection corpus. A pipeline that 'finds' evidence here is over-retrieving, and the verifier should mark any confident answer as unsupported."
+    }
+  ]
+}
