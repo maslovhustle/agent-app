@@ -20,7 +20,8 @@ reach for them.
 | `backend-engineer` | `app/api/**`, `app/actions/**`, `lib/inngest/**`, `lib/supabase/**`, CI | routes, actions, jobs, DB access, deployment |
 | `frontend-engineer` | `components/**`, pages | chat UI, inspector, streaming, panels |
 | `design-system` | `app/globals.css`, `components/ui/**` | new visual pattern, tokens, primitives |
-| `code-reviewer` | the gate | before merging anything risky |
+| `code-reviewer` | correctness by inspection | after code is written, before tests |
+| `test-engineer` | `tests/**`, `evals/**` | after review, before CI — produces the evidence |
 
 Three older single-purpose prompts remain in `prompts/dev-agents/` and are still the
 authority in their niche: `db-agent.md` (SQL/pgvector), `evals-agent.md` (RAG metrics),
@@ -52,10 +53,29 @@ flowchart TD
     FE --> CR
     DS --> CR
     CR -->|defects| DL
-    CR -->|clean| GATE{{gates green?}}
-    GATE -->|no| DL
-    GATE -->|yes| DONE([done])
+    CR -->|clean| TE[test-engineer]
+    TE -->|missing coverage / regression| DL
+    TE -->|evidence green| CI{{CI: typecheck·lint·test·build}}
+    CI -->|red| DL
+    CI -->|green| CD[deploy]
+    CD --> DONE([production])
 ```
+
+## The verification order
+
+**`code-reviewer` → `test-engineer` → CI → deploy.** Each stage answers a different
+question, and running them out of order wastes the expensive ones:
+
+1. **Review** — is it correct *by inspection*? Catches silent-regression patterns a test
+   would never think to look for (a removed `dedupeByParent`, a threshold applied to
+   passthrough zeros).
+2. **Test** — is it correct *by execution*? Produces the evidence: unit tests for pure
+   logic, eval numbers for anything touching retrieval.
+3. **CI** — does that evidence hold on a clean machine? Catches "works on my node_modules".
+4. **Deploy** — gated on CI. A red suite cannot reach production.
+
+Review before test is deliberate: a reviewer who finds a design flaw saves you writing
+tests for code that is about to be rewritten.
 
 ## Handoff contract
 
@@ -87,8 +107,10 @@ exceptions, so no test or build will catch them.
 - Engineer → `product-owner`: the spec's acceptance criteria are not checkable.
 - Anyone → `delivery-lead`: two agents appear to own the same change (the change is too
   big — split it).
-- `rag-engineer` → `evals-agent`: **always**, before merging a retrieval change. Numbers or
-  it did not happen.
+- `rag-engineer` → `test-engineer`: **always**, before merging a retrieval change. Numbers
+  or it did not happen.
+- `test-engineer` → `delivery-lead`: coverage gap or metric regression — the change goes
+  back to its owner, it does not proceed to CI.
 
 ## Definition of done — same for everyone
 

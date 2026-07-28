@@ -34,19 +34,34 @@ held to.
 | Cross-cutting structure, new dependencies, data flow | `architect` |
 | `.github/workflows/**`, deployment | `backend-engineer` + `architect` |
 
+## The verification order
+
+Every flow below ends the same way, and the order is deliberate:
+
+```
+owning engineer → code-reviewer → test-engineer → CI → deploy
+```
+
+Review comes **before** tests because a reviewer who finds a design flaw saves writing
+tests for code that is about to be rewritten. Tests come **before** CI because CI is just
+the same evidence re-run on a clean machine — if it fails locally it will fail there, more
+slowly.
+
 ## Standard flows
 
 **Feature** → `product-owner` (spec) → `architect` (only if it changes data flow or adds a
-dependency) → owning engineer → `code-reviewer` → you verify gates.
+dependency) → owning engineer → `code-reviewer` → `test-engineer` → CI.
 
-**Bug** → owning engineer (reproduce first, then fix) → `code-reviewer` if the fix touches
-retrieval, the graph, or a reducer; otherwise you verify gates directly.
+**Bug** → owning engineer reproduces first, then fixes → `code-reviewer` if the fix touches
+retrieval, the graph, or a reducer → `test-engineer` writes the regression test (it must
+fail before the fix) → CI.
 
-**Tuning** (chunk sizes, RRF weights, thresholds) → `rag-tuner` → `evals-agent` must confirm
-no metric regression. Never merge tuning on a single anecdote.
+**Tuning** (chunk sizes, RRF weights, thresholds) → `rag-tuner` → `test-engineer` must
+confirm no metric regression with before/after numbers and both configs. Never merge tuning
+on a single anecdote.
 
-**UI change** → `design-system` (if new visual patterns) → `frontend-engineer` → verify in a
-real browser, not just a passing build.
+**UI change** → `design-system` (if new visual patterns) → `frontend-engineer` →
+`code-reviewer` → verify in a real browser, not just a passing build.
 
 ## Rules
 

@@ -374,7 +374,12 @@ routing diagram.
 | `backend-engineer` | routes, Server Actions, Inngest, Supabase, CI |
 | `frontend-engineer` | `components/**`, pages, streaming UI |
 | `design-system` | tokens, `components/ui/**` |
-| `code-reviewer` | the merge gate |
+| `code-reviewer` | correctness by inspection |
+| `test-engineer` | `tests/**`, `evals/**` — correctness by execution |
+
+Verification runs in a fixed order — **review → test → CI → deploy**. Review first because
+a reviewer who finds a design flaw saves writing tests for code about to be rewritten;
+tests before CI because CI is the same evidence re-run on a clean machine.
 
 The protocol's central rule: **review is mandatory for changes to retrieval, agent state
 reducers, prompts, or the server/client boundary** — because failures there are silent.
