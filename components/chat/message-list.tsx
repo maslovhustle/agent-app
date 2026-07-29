@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, ShieldCheck, Sparkles, User } from 'lucide-react';
+import { AlertTriangle, ArrowRight, ShieldCheck, Sparkles, User } from 'lucide-react';
 import * as React from 'react';
 
 import type { ResearchUIMessage } from '@/lib/ai/agent/messages';
@@ -19,12 +19,15 @@ interface MessageListProps {
   messages: ResearchUIMessage[];
   isStreaming: boolean;
   onCitationClick: (citationIndex: number) => void;
+  /** Sends one of the example questions from the empty state. */
+  onExampleClick: (text: string) => void;
 }
 
 export function MessageList({
   messages,
   isStreaming,
   onCitationClick,
+  onExampleClick,
 }: MessageListProps): React.JSX.Element {
   const bottomRef = React.useRef<HTMLDivElement>(null);
 
@@ -33,7 +36,7 @@ export function MessageList({
   }, [messages, isStreaming]);
 
   if (messages.length === 0) {
-    return <EmptyState />;
+    return <EmptyState onExampleClick={onExampleClick} />;
   }
 
   return (
@@ -233,7 +236,11 @@ function findVerification(message: ResearchUIMessage): Verification | null {
   return null;
 }
 
-function EmptyState(): React.JSX.Element {
+function EmptyState({
+  onExampleClick,
+}: {
+  onExampleClick: (text: string) => void;
+}): React.JSX.Element {
   const examples = [
     'What are the notification deadlines for a personal data breach, and who must be told?',
     'Compare the data processing agreement requirements across the uploaded frameworks.',
@@ -256,11 +263,15 @@ function EmptyState(): React.JSX.Element {
       </div>
       <ul className="flex w-full max-w-md flex-col gap-2 text-left">
         {examples.map((example) => (
-          <li
-            key={example}
-            className="panel-muted px-3 py-2 text-xs text-[var(--color-ink-2)]"
-          >
-            {example}
+          <li key={example}>
+            <button
+              type="button"
+              onClick={() => onExampleClick(example)}
+              className="panel-muted group flex w-full items-center gap-2 px-3 py-2 text-left text-xs text-[var(--color-ink-2)] transition-colors hover:border-[var(--color-brand)] hover:bg-[oklch(0.72_0.16_255_/_0.08)] hover:text-[var(--color-ink-0)]"
+            >
+              <span className="flex-1">{example}</span>
+              <ArrowRight className="size-3 shrink-0 text-[var(--color-ink-3)] opacity-0 transition-opacity group-hover:opacity-100" />
+            </button>
           </li>
         ))}
       </ul>

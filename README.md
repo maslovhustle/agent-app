@@ -1,9 +1,19 @@
 # AI Knowledge & Compliance Research Agent
 
+### ▶ [agent-app-weld.vercel.app](https://agent-app-weld.vercel.app)
+
 [![CI](https://github.com/maslovhustle/agent-app/actions/workflows/ci.yml/badge.svg)](https://github.com/maslovhustle/agent-app/actions/workflows/ci.yml)
 
 A production-shaped Next.js 15 application that answers compliance questions against a
 private document corpus — and shows its entire reasoning process while it does.
+
+> **Live demo, no sign-up.** A small corpus is already indexed — click one of the example
+> questions, then open the **Agent** tab to watch the plan, the hybrid-search statistics
+> and the grounding check fill in while the answer streams. The **Trace** tab shows the
+> real latency and token cost of the turn you just ran.
+>
+> It has no authentication by design (see [Production notes](#production-notes)), so
+> please be gentle with the upload panel.
 
 It exists to demonstrate what an *enterprise* AI product architecture actually looks like
 once you go past "call the model with some context": advanced RAG, an agentic workflow,
