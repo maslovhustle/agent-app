@@ -20,7 +20,19 @@ create extension if not exists "pgcrypto";
 -- ---------------------------------------------------------------------------
 -- documents
 -- ---------------------------------------------------------------------------
-create type document_status as enum ('pending', 'processing', 'ready', 'failed');
+
+-- Postgres has no `create type ... if not exists`, so the guard has to be
+-- explicit. Without it this whole file is single-use: re-running it — which is
+-- exactly what the Supabase preview integration does on every branch — aborts
+-- at statement 3 with "type document_status already exists" (SQLSTATE 42710),
+-- and every statement after it is skipped.
+do $$
+begin
+  if not exists (select 1 from pg_type where typname = 'document_status') then
+    create type document_status as enum ('pending', 'processing', 'ready', 'failed');
+  end if;
+end
+$$;
 
 create table if not exists documents (
   id             uuid primary key default gen_random_uuid(),
