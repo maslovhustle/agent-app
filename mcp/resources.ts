@@ -1,3 +1,5 @@
+import 'server-only';
+
 import {
   ResourceTemplate,
   type McpServer,
@@ -128,6 +130,12 @@ function registerDocuments(server: McpServer): void {
         // response, so throwing here would hide the static ones too. A client
         // that cannot see `compliance://config` cannot even discover that
         // retrieval is degraded — which is exactly when it needs to.
+        //
+        // The protocol gives a listing nowhere to carry a degradation flag, so
+        // the distinction lives one resource away instead: `compliance://corpus`
+        // deliberately does NOT catch. An empty listing there means an empty
+        // corpus; a failure to read it means the database is unreachable. A
+        // client that needs to tell the two apart reads that resource.
         const documents = await listDocumentRows().catch((error: unknown) => {
           console.error('[mcp] could not enumerate the corpus, listing none', error);
           return [];

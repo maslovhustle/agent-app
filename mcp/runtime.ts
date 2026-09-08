@@ -1,3 +1,5 @@
+import 'server-only';
+
 import type { AgentRuntime } from '@/lib/ai/agent';
 import { startTrace, type TraceHandle } from '@/lib/ai/langfuse';
 import type { AgentEvent, AgentNodeName } from '@/lib/types';

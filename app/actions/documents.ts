@@ -35,6 +35,13 @@ export async function uploadDocument(formData: FormData): Promise<UploadResult> 
   } finally {
     // The panel must re-render either way: a rejected upload leaves a `failed`
     // row behind, which is as much of an update as a queued one.
+    //
+    // This also revalidates for the three rejections thrown before any row is
+    // written (empty, oversize, unsupported type), which the pre-refactor code
+    // did not. Kept deliberately: the cost is one wasted cache invalidation on
+    // a user input error, and the alternative — teaching this layer which
+    // failures touched the database — puts knowledge of the ingest internals
+    // back into the caller that was just relieved of it.
     revalidatePath('/documents');
   }
 }
