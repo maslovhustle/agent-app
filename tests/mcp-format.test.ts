@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { renderAnswer, renderPassages, toPassage, truncate } from '@/mcp/format';
+import { deriveRerankApplied, renderAnswer, renderPassages, toPassage, truncate } from '@/mcp/format';
 import type { RetrievalResult, RetrievedContext, Verification } from '@/lib/types';
 
 const context = (overrides: Partial<RetrievedContext> = {}): RetrievedContext => ({
@@ -44,6 +44,49 @@ describe('toPassage', () => {
   it('labels the score scale so a client cannot threshold fusion ranks as relevance', () => {
     expect(toPassage(context(), true).scoreKind).toBe('rerank');
     expect(toPassage(context(), false).scoreKind).toBe('rrf');
+  });
+});
+
+describe('deriveRerankApplied', () => {
+  // This is the exact case the reviewer flagged: `ask_with_citations` runs a
+  // multi-step plan, and `mergeContexts` interleaves passages from every step
+  // into one list with no record of which step produced which passage. The
+  // label on that combined list has to be the weaker truth — anything else
+  // tells a client a fusion rank is calibrated relevance it can threshold.
+  it('labels a mixed multi-step result "rrf" when only one step reranked', () => {
+    expect(
+      deriveRerankApplied([stats({ rerankApplied: true }), stats({ rerankApplied: false })]),
+    ).toBe(false);
+    // Order must not matter — the fallback step could land first or last.
+    expect(
+      deriveRerankApplied([stats({ rerankApplied: false }), stats({ rerankApplied: true })]),
+    ).toBe(false);
+  });
+
+  it('labels "rerank" only when every step reranked', () => {
+    expect(
+      deriveRerankApplied([stats({ rerankApplied: true }), stats({ rerankApplied: true })]),
+    ).toBe(true);
+  });
+
+  it('labels "rrf" when every step fell back', () => {
+    expect(
+      deriveRerankApplied([stats({ rerankApplied: false }), stats({ rerankApplied: false })]),
+    ).toBe(false);
+  });
+
+  it('matches the single-step behaviour at either extreme', () => {
+    expect(deriveRerankApplied([stats({ rerankApplied: true })])).toBe(true);
+    expect(deriveRerankApplied([stats({ rerankApplied: false })])).toBe(false);
+  });
+
+  // `[].every(...)` is vacuously true, which would report "rerank" for a run
+  // that reranked nothing. Unreachable today — the graph always visits the
+  // retriever at least once — but a caller reading `retrieval.rerankApplied`
+  // before checking whether any citations exist would see a confident label
+  // with nothing behind it, so the function refuses to make the claim.
+  it('claims nothing when there were no retrieval steps', () => {
+    expect(deriveRerankApplied([])).toBe(false);
   });
 });
 

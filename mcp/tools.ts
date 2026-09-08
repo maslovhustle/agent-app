@@ -12,7 +12,7 @@ import { ingestDocumentSource } from '@/lib/documents/ingest';
 import { getRagConfig } from '@/lib/env';
 import type { Verification } from '@/lib/types';
 
-import { renderAnswer, renderPassages, toPassage } from './format';
+import { deriveRerankApplied, renderAnswer, renderPassages, toPassage } from './format';
 import { createHeadlessRuntime } from './runtime';
 
 /**
@@ -221,13 +221,7 @@ function registerAskWithCitations(server: McpServer): void {
 
       const refused = verdict.status === 'unsupported';
 
-      // `every`, not `some`. A multi-step plan can rerank on one step and fall
-      // back to fusion ordering on the next, and `mergeContexts` interleaves
-      // both into one list without recording which step produced which passage.
-      // With that ambiguity the only honest label is the weaker one: claiming
-      // "rerank" for a score that is really an RRF rank invites a client to
-      // threshold noise as though it were calibrated relevance.
-      const rerankApplied = state.retrievalStats.every((stat) => stat.rerankApplied);
+      const rerankApplied = deriveRerankApplied(state.retrievalStats);
       const citations = state.contexts.map((context) => toPassage(context, rerankApplied));
 
       const structuredContent = {

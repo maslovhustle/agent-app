@@ -28,6 +28,25 @@ export interface Passage {
   content: string;
 }
 
+/**
+ * Whether a set of retrieval steps can honestly be labelled "rerank".
+ *
+ * `every`, not `some`. A multi-step plan can rerank on one step and fall back
+ * to fusion ordering on the next, and `mergeContexts` interleaves both into
+ * one list without recording which step produced which passage. With that
+ * ambiguity the only honest label is the weaker one: claiming "rerank" for a
+ * score that is really an RRF rank invites a client to threshold noise as
+ * though it were calibrated relevance.
+ */
+export function deriveRerankApplied(
+  steps: readonly Pick<RetrievalResult['stats'], 'rerankApplied'>[],
+): boolean {
+  // The length check is not redundant: `[].every(…)` is vacuously true, and a
+  // run with no retrieval steps reranked nothing. Reporting "rerank" there
+  // would be a confident label with nothing behind it.
+  return steps.length > 0 && steps.every((step) => step.rerankApplied);
+}
+
 export function toPassage(context: RetrievedContext, rerankApplied: boolean): Passage {
   return {
     citation: context.citationIndex,
