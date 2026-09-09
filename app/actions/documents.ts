@@ -3,7 +3,7 @@
 import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 
-import { extractText, isSupportedFile, normalizeText } from '@/lib/chunking';
+import { ingestDocumentSource } from '@/lib/documents/ingest';
 import { inngest } from '@/lib/inngest/client';
 import { getSupabaseAdmin } from '@/lib/supabase/server';
 import type { DocumentRecord, UploadResult } from '@/lib/types';
@@ -11,14 +11,11 @@ import type { DocumentRecord, UploadResult } from '@/lib/types';
 /**
  * Server Actions for the document panel.
  *
- * Text extraction happens here, synchronously, while chunking and embedding
- * are queued. That split is deliberate: extraction is fast and its failures
- * (encrypted PDF, scanned image, wrong file type) are things the user must see
- * immediately and can fix by uploading a different file. Embedding failures
- * are transient infrastructure problems that belong to a retrying worker.
+ * Ingestion itself lives in `lib/documents/ingest`, because the MCP server
+ * enqueues documents through the same path and neither caller should own it.
+ * What stays here is the part that is genuinely Next-specific: unwrapping
+ * `FormData` and revalidating the route.
  */
-
-const MAX_FILE_BYTES = 20 * 1024 * 1024;
 
 export async function uploadDocument(formData: FormData): Promise<UploadResult> {
   const file = formData.get('file');
@@ -27,81 +24,25 @@ export async function uploadDocument(formData: FormData): Promise<UploadResult> 
     throw new Error('No file provided');
   }
 
-  if (file.size === 0) {
-    throw new Error(`${file.name} is empty`);
-  }
-
-  if (file.size > MAX_FILE_BYTES) {
-    throw new Error(
-      `${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB — the limit is 20 MB`,
-    );
-  }
-
-  if (!isSupportedFile(file.type, file.name)) {
-    throw new Error(`${file.name}: only PDF, Markdown and plain text are supported`);
-  }
-
-  const supabase = getSupabaseAdmin();
-
-  const { data: document, error: insertError } = await supabase
-    .from('documents')
-    .insert({
-      filename: file.name,
-      mime_type: file.type || 'application/octet-stream',
-      size_bytes: file.size,
-      status: 'pending',
-    })
-    .select('id')
-    .single();
-
-  if (insertError || !document) {
-    throw new Error(`Could not create document record: ${insertError?.message ?? 'unknown error'}`);
-  }
-
-  const documentId = document.id as string;
-
   try {
-    const buffer = await file.arrayBuffer();
-    const { text, pageCount } = await extractText(buffer, file.type, file.name);
-    const normalized = normalizeText(text);
-
-    if (normalized.length < 50) {
-      throw new Error('Extracted text is too short to index (under 50 characters)');
-    }
-
-    const { error: sourceError } = await supabase
-      .from('document_sources')
-      .insert({ document_id: documentId, content: normalized });
-
-    if (sourceError) {
-      throw new Error(`Could not store extracted text: ${sourceError.message}`);
-    }
-
-    await supabase
-      .from('documents')
-      .update({
-        char_count: normalized.length,
-        metadata: pageCount ? { pageCount } : {},
-      })
-      .eq('id', documentId);
-
-    // Hand off to the durable worker.
-    await inngest.send({
-      name: 'document/uploaded',
-      data: { documentId, filename: file.name },
+    const { documentId, filename, status } = await ingestDocumentSource({
+      filename: file.name,
+      mimeType: file.type,
+      bytes: await file.arrayBuffer(),
     });
 
+    return { documentId, filename, status };
+  } finally {
+    // The panel must re-render either way: a rejected upload leaves a `failed`
+    // row behind, which is as much of an update as a queued one.
+    //
+    // This also revalidates for the three rejections thrown before any row is
+    // written (empty, oversize, unsupported type), which the pre-refactor code
+    // did not. Kept deliberately: the cost is one wasted cache invalidation on
+    // a user input error, and the alternative — teaching this layer which
+    // failures touched the database — puts knowledge of the ingest internals
+    // back into the caller that was just relieved of it.
     revalidatePath('/documents');
-
-    return { documentId, filename: file.name, status: 'pending' };
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    await supabase
-      .from('documents')
-      .update({ status: 'failed', error_message: message.slice(0, 1000) })
-      .eq('id', documentId);
-    revalidatePath('/documents');
-    throw new Error(message);
   }
 }
 

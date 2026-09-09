@@ -15,9 +15,11 @@
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "evals": "tsx scripts/run-evals.ts",
+    "evals": "tsx --conditions=react-server scripts/run-evals.ts",
     "db:push": "tsx scripts/apply-migrations.ts",
-    "inngest:dev": "inngest-cli dev -u http://localhost:3000/api/inngest"
+    "inngest:dev": "inngest-cli dev -u http://localhost:3000/api/inngest",
+    "mcp": "tsx --conditions=react-server mcp/server.ts",
+    "mcp:smoke": "tsx scripts/mcp-smoke.ts"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^2.0.0",
@@ -25,6 +27,7 @@
     "@ai-sdk/react": "^2.0.0",
     "@langchain/core": "^1.0.0",
     "@langchain/langgraph": "^1.0.0",
+    "@modelcontextprotocol/sdk": "^1.30.0",
     "@pinecone-database/pinecone": "^6.0.0",
     "@radix-ui/react-accordion": "^1.2.0",
     "@radix-ui/react-dialog": "^1.1.0",
@@ -70,6 +73,8 @@
     "vitest": "^2.1.8"
   },
   "pnpm": {
-    "onlyBuiltDependencies": ["inngest-cli"]
+    "onlyBuiltDependencies": [
+      "inngest-cli"
+    ]
   }
 }

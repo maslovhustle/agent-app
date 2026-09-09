@@ -49,6 +49,7 @@ observability.
 - [How it works](#how-it-works) — the concepts, explained
 - [Tech stack](#tech-stack)
 - [Project structure](#project-structure)
+- [MCP server](#mcp-server) — the corpus as agent tools
 - [Configuration](#configuration)
 - [Tuning and evaluation](#tuning-and-evaluation)
 - [AI-assisted development setup](#ai-assisted-development-setup)
@@ -305,12 +306,44 @@ completes normally.
 │   │   ├── retrieval/          search · rrf · rerank · hybrid
 │   │   ├── agent/              state · prompts · graph · messages
 │   │   └── tools/              Web-search fallback
+│   ├── documents/ingest.ts     Shared ingestion path (Server Action + MCP)
 │   └── inngest/                Client + durable ingestion functions
+├── mcp/                        MCP server — tools, resources, stdio entry
 ├── supabase/migrations/        pgvector + tsvector schema and RPCs
 ├── evals/                      Ground-truth dataset + retrieval metrics
 ├── scripts/                    Eval runner, migration printer
 └── tests/                      Vitest suites
 ```
+
+---
+
+## MCP server
+
+The agent is also an [MCP](https://modelcontextprotocol.io) server, so Claude Desktop,
+Claude Code or any agent you write can use the corpus as a tool:
+
+```bash
+pnpm mcp
+```
+
+Most RAG MCP servers expose bare vector similarity — the client agent gets passages or
+prose and has to decide for itself whether to believe them. Here the interesting tool is
+`ask_with_citations`, which runs the whole graph, so what comes back has already passed the
+verification node. Every answer carries a grounding verdict, and when no claim can be traced
+to the corpus **the tool refuses**: `answer` comes back `null` and the ungrounded draft is
+quarantined on `withheldDraft`, where it cannot be mistaken for a result.
+
+| Tool | Returns |
+|---|---|
+| `search_documents(query, topK?, documentIds?)` | Ranked passages + retrieval telemetry — raw evidence, no verification |
+| `ask_with_citations(question, documentIds?)` | Verified answer, citations, grounding verdict, plan, cost |
+| `ingest_document(path \| content + filename)` | Document id; chunking and embedding queue on Inngest |
+
+The corpus itself is exposed as resources rather than tools — `compliance://corpus`,
+`compliance://document/{id}`, and `compliance://config`, which tells a client whether
+reranking is actually active and therefore how much its scores are worth.
+
+Setup, client configuration and design notes: **[mcp/README.md](mcp/README.md)**.
 
 ---
 

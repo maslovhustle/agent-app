@@ -36,7 +36,13 @@ pnpm typecheck          # tsc --noEmit
 pnpm test               # vitest (unit)
 pnpm evals              # RAG quality metrics against evals/dataset.json
 pnpm db:push            # print SQL migrations for psql / Supabase SQL editor
+pnpm mcp                # MCP server over stdio (see mcp/README.md)
+pnpm mcp:smoke          # handshake with that server and print its surface
 ```
+
+`pnpm mcp` and `pnpm evals` both run under `tsx --conditions=react-server`. That flag is
+required, not cosmetic: it is what makes the `server-only` marker resolve to an empty
+module outside Next. Without it, importing the retrieval pipeline throws on load.
 
 `SKIP_ENV_VALIDATION=true` bypasses env parsing — use it for CI lint/build jobs only,
 never at runtime.
@@ -162,6 +168,8 @@ lib/
     agent/                 state · prompts · graph · messages
     tools/web-search.ts    Tavily fallback with an honest mock
   inngest/                 Client + durable ingestion functions
+  documents/ingest.ts      Shared ingestion front door (Server Action + MCP)
+mcp/                       MCP server: stdio entry, tools, resources, formatting
 supabase/migrations/       pgvector + tsvector schema and RPCs
 evals/                     Ground-truth dataset and retrieval metrics
 prompts/dev-agents/        System prompts for the specialised sub-agents
@@ -190,3 +198,5 @@ For focused work, load the matching prompt from `prompts/dev-agents/`:
   prompt, the verifier prompt, and `formatContextsForPrompt` together.
 - Embedding parent chunks. Children are embedded. Parents are read. That asymmetry is the
   whole design.
+- Returning an MCP answer without its grounding verdict, or putting an `unsupported` draft
+  where a client would read it as prose. The refusal is the feature.
